@@ -1,0 +1,52 @@
+
+from sqlalchemy import select, or_
+from sqlalchemy.orm import Session
+
+from app.models.pending_category_review import PendingCategoryReview
+from app.models.category import Category
+
+
+class PendingCategoryReviewService:
+
+    @staticmethod
+    def get_pending_reviews(db: Session):
+        query = select(PendingCategoryReview).where(
+            PendingCategoryReview.status == "pending"
+        )
+
+        return list(db.scalars(query).all())
+
+    @staticmethod
+    def get_reviews_for_user(db: Session, user):
+        query = select(PendingCategoryReview)
+
+        # Preserve the original repository's privileged-user behavior.
+        if user.id != 1:
+            conditions = [
+                PendingCategoryReview.user_id == user.id
+            ]
+
+            if user.budget_id:
+                conditions.append(
+                    PendingCategoryReview.budget_id == user.budget_id
+                )
+
+            query = query.where(or_(*conditions))
+
+        return list(db.scalars(query).all())
+
+    @staticmethod
+    def get_alternative_categories(
+        db: Session,
+        review: PendingCategoryReview
+    ):
+        category_ids = review.alternative_category_ids or []
+
+        if not category_ids:
+            return []
+
+        query = select(Category).where(
+            Category.id.in_(category_ids)
+        )
+
+        return list(db.scalars(query).all())
